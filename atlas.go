@@ -10,7 +10,7 @@ type Node struct {
 	linkKey linkKeyType
 
 	links      map[linkKeyType]*Node // mutable
-	linksMutex sync.Mutex            // TODO replace with atomics if possible
+	linksMutex sync.RWMutex          // TODO replace with atomics if possible
 }
 
 type linkKeyType [2]string
@@ -19,10 +19,10 @@ func (n *Node) GoTo(key, value string) *Node {
 	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
 	}
-	n.linksMutex.Lock()
+	n.linksMutex.RLock()
 	linkKey := [2]string{key, value}
 	result, ok := n.links[linkKey]
-	n.linksMutex.Unlock()
+	n.linksMutex.RUnlock()
 	if ok {
 		return result
 	}

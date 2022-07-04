@@ -2,6 +2,7 @@ package atlas
 
 import (
 	"math/rand"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -69,83 +70,91 @@ func TestConcurrency(t *testing.T) {
 }
 
 func BenchmarkConcurrencyBad(b *testing.B) {
-	values := make([]string, 10000)
-	keys := make([]string, 15)
-	for i := 0; i < len(keys); i++ {
-		keys[i] = randSeq(100)
+	for _, n := range []int{1000, 10000, 100000} {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
+			values := make([]string, n)
+			keys := make([]string, 15)
+			for i := 0; i < len(keys); i++ {
+				keys[i] = randSeq(100)
+			}
+			for i := 0; i < len(values); i++ {
+				values[i] = randSeq(100)
+			}
+			r := New()
+			b.ReportAllocs()
+			b.ResetTimer()
+			b.RunParallel(func(p *testing.PB) {
+				for p.Next() {
+					r.GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					).GoTo(
+						keys[rand.Int()%len(keys)],
+						values[rand.Int()%len(values)],
+					)
+				}
+			})
+		})
 	}
-	for i := 0; i < len(values); i++ {
-		values[i] = randSeq(100)
-	}
-	r := New()
-	b.ReportAllocs()
-	b.ResetTimer()
-	b.RunParallel(func(p *testing.PB) {
-		for p.Next() {
-			r.GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			).GoTo(
-				keys[rand.Int()%len(keys)],
-				values[rand.Int()%len(values)],
-			)
-		}
-	})
 }
 
 func BenchmarkRealistic(b *testing.B) {
-	values := make([]string, 100000)
-	for i := 0; i < len(values); i++ {
-		values[i] = randSeq(100)
-	}
-	r := New().
-		GoTo("labelone", "valueone").
-		GoTo("labeltthree", "valuetthree").
-		GoTo("labelfour", "valuefour").
-		GoTo("labelfive", "valuefive").
-		GoTo("labelsix", "valuefive").
-		GoTo("labelseven", "valuefive").
-		GoTo("labeleigth", "valuefive").
-		GoTo("labeltwo", "valuetwo")
-	b.ReportAllocs()
-	b.ResetTimer()
-	b.RunParallel(func(p *testing.PB) {
-		i := 0
-		for p.Next() {
-			i++
-			n := r.GoTo(
-				"badkey",
-				values[i%len(values)],
-			)
-			if i%2 == 0 {
-				n = n.GoTo("labelsix", "someOtheStrangeValue")
+	for _, n := range []int{1000, 10000, 100000} {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
+			values := make([]string, n)
+			for i := 0; i < len(values); i++ {
+				values[i] = randSeq(100)
 			}
-			switch i % 7 {
-			case 0, 1, 2:
-				n.GoTo("okayLabel", "200")
-			case 3, 4:
-				n.GoTo("okayLabel", "400")
-			case 5:
-				n.GoTo("okayLabel", "500")
-			case 6:
-				n.GoTo("okayLabel", "0")
-			}
+			r := New().
+				GoTo("labelone", "valueone").
+				GoTo("labeltthree", "valuetthree").
+				GoTo("labelfour", "valuefour").
+				GoTo("labelfive", "valuefive").
+				GoTo("labelsix", "valuefive").
+				GoTo("labelseven", "valuefive").
+				GoTo("labeleigth", "valuefive").
+				GoTo("labeltwo", "valuetwo")
+			b.ReportAllocs()
+			b.ResetTimer()
+			b.RunParallel(func(p *testing.PB) {
+				i := 0
+				for p.Next() {
+					i++
+					n := r.GoTo(
+						"badkey",
+						values[i%len(values)],
+					)
+					if i%2 == 0 {
+						n = n.GoTo("labelsix", "someOtheStrangeValue")
+					}
+					switch i % 7 {
+					case 0, 1, 2:
+						n.GoTo("okayLabel", "200")
+					case 3, 4:
+						n.GoTo("okayLabel", "400")
+					case 5:
+						n.GoTo("okayLabel", "500")
+					case 6:
+						n.GoTo("okayLabel", "0")
+					}
 
-		}
-	})
+				}
+			})
+		})
+	}
 }
