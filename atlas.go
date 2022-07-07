@@ -30,6 +30,21 @@ func (n *Node) GoTo(key, value string) *Node {
 	return result
 }
 
+func (n *Node) Contains(sub *Node) bool {
+	if n == sub {
+		return true
+	}
+	if n.root == n {
+		return false
+	}
+	// TODO: https://github.com/mstoykov/atlas/issues/2
+	// apparently this is faster than if n.linkKey == sub.linkKey
+	if n.linkKey[0] == sub.linkKey[0] && n.linkKey[1] == sub.linkKey[1] {
+		return n.prev.Contains(sub.prev)
+	}
+	return n.prev.Contains(sub)
+}
+
 func (n *Node) add(linkKey linkKeyType) *Node {
 	if n.linkKey == linkKey {
 		return n
