@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+type linkKeyType [2]string
+
 type Node struct {
 	root    *Node // immutable
 	prev    *Node // immutable
@@ -13,9 +15,35 @@ type Node struct {
 	linksMutex sync.RWMutex          // TODO replace with atomics if possible
 }
 
-type linkKeyType [2]string
+func New() *Node {
+	n := &Node{
+		links: make(map[linkKeyType]*Node),
+	}
+	n.root = n
+	n.prev = n
+	return n
+}
 
-func (n *Node) GoTo(key, value string) *Node {
+func (n *Node) ValueByKey(k string) (string, bool) {
+	if n.root == n {
+		return "", false
+	}
+	if n.linkKey[0] == k {
+		return n.linkKey[1], true
+	}
+	return n.prev.ValueByKey(k)
+}
+
+func (n *Node) Path() map[string]string {
+	if n.root == n {
+		return make(map[string]string)
+	}
+	result := n.prev.Path()
+	result[n.linkKey[0]] = n.linkKey[1]
+	return result
+}
+
+func (n *Node) AddLink(key, value string) *Node {
 	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
 	}
@@ -52,11 +80,13 @@ func (n *Node) add(linkKey linkKeyType) *Node {
 	var newNode *Node
 	switch {
 	case n.linkKey[0] == linkKey[0]:
-		// the key is save the value is different
-		// make a new node from the prev
+		// the key is the same but the value is different
+		// we need to add a node at the current "level" to keep the key unique
+		// so we make a new node on top of the previous node
 		newNode = n.prev.add(linkKey)
 	case linkKey[0] < n.linkKey[0] || n.linkKey[0] == "":
-		// we just need to add it here or we at the root
+		// we just need to add the new node here because
+		// we are at the root or we are in the next direct link
 		newNode = &Node{
 			root:    n.root,
 			prev:    n,
@@ -64,8 +94,8 @@ func (n *Node) add(linkKey linkKeyType) *Node {
 			links:   make(map[linkKeyType]*Node),
 		}
 	default:
-		// we need to add this to a previous node in the path to the root
-		// and then add the current node keys on top of that
+		// we need to add this to a previous node in the path
+		// then we have to add the current node pair on to the new path
 		newNode = n.prev.add(linkKey).add(n.linkKey)
 	}
 	// the actual adding
@@ -78,22 +108,4 @@ func (n *Node) add(linkKey linkKeyType) *Node {
 	n.links[linkKey] = newNode
 	n.linksMutex.Unlock()
 	return newNode
-}
-
-func (n *Node) Path() map[string]string {
-	if n.root == n {
-		return make(map[string]string)
-	}
-	result := n.prev.Path()
-	result[n.linkKey[0]] = n.linkKey[1]
-	return result
-}
-
-func New() *Node {
-	n := &Node{
-		links: make(map[linkKeyType]*Node),
-	}
-	n.root = n
-	n.prev = n
-	return n
 }
