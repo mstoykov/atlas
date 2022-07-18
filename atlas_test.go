@@ -2,6 +2,7 @@ package atlas
 
 import (
 	"math/rand"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -106,7 +107,7 @@ const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // from https://stackoverflow.com/a/22892986/5427244
 func randSeq() string {
-	b := make([]byte, 100)
+	b := make([]byte, 20)
 	for i := range b {
 		b[i] = letters[rand.Intn(len(letters))] //nolint:gosec
 	}
@@ -145,11 +146,9 @@ func TestConcurrency(t *testing.T) {
 }
 
 func BenchmarkNodeConcurrencyBad(b *testing.B) {
-	ixrand := func(nvals int) int {
-		return rand.Int() % nvals //nolint:gosec
-	}
-	for _, n := range []int{1000, 10000, 100000} {
+	for _, n := range []int{1000, 10000, 50000} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {
+			ix := make([]uint64, n)
 			values := make([]string, n)
 			keys := make([]string, 15)
 			for i := 0; i < len(keys); i++ {
@@ -157,42 +156,44 @@ func BenchmarkNodeConcurrencyBad(b *testing.B) {
 			}
 			for i := 0; i < len(values); i++ {
 				values[i] = randSeq()
+				ix[i] = uint64(rand.Int() % len(values))
 			}
+			lkeys := uint64(len(keys))
+			lvals := uint64(len(values))
+			randKey := func(counter uint64) uint64 {
+				return ix[counter%lkeys] % lkeys
+			}
+			randVal := func(counter uint64) uint64 {
+				return ix[counter%lvals] % lvals
+			}
+
 			r := New()
+
 			b.ReportAllocs()
 			b.ResetTimer()
+
 			b.RunParallel(func(p *testing.PB) {
+				cycles := uint64(0)
 				for p.Next() {
-					r.AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
-					).AddLink(
-						keys[ixrand(len(keys))],
-						values[ixrand(len(values))],
+					n := r.AddLink(
+						keys[randKey(cycles)],
+						values[randVal(cycles)],
 					)
+					for i := uint64(0); i < 7; i++ {
+						n = n.AddLink(
+							keys[randKey(cycles+i+1)],
+							values[randVal(cycles+i+1)],
+						)
+					}
 				}
+				cycles++
 			})
 		})
 	}
 }
 
 func BenchmarkNodeRealistic(b *testing.B) {
-	for _, n := range []int{1000, 10000, 100000} {
+	for _, n := range []int{runtime.GOMAXPROCS(0), 1000, 10000, 50000} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			values := make([]string, n)
 			for i := 0; i < len(values); i++ {
@@ -205,18 +206,21 @@ func BenchmarkNodeRealistic(b *testing.B) {
 				AddLink("labelfive", "valuefive").
 				AddLink("labelsix", "valuefive").
 				AddLink("labelseven", "valuefive").
-				AddLink("labeleigth", "valuefive").
-				AddLink("labeltwo", "valuetwo")
+				AddLink("labeleigth", "valuefive")
+			lvals := uint64(len(values))
+
 			b.ReportAllocs()
 			b.ResetTimer()
+			b.SetParallelism(n)
 			b.RunParallel(func(p *testing.PB) {
-				i := 0
+				i := uint64(0)
 				for p.Next() {
 					i++
 					n := r.AddLink(
 						"badkey",
-						values[i%len(values)],
+						values[i%lvals],
 					)
+
 					if i%2 == 0 {
 						n = n.AddLink("labelsix", "someOtheStrangeValue")
 					}
