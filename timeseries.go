@@ -15,6 +15,11 @@ type TagSet struct {
 	tagIndex map[string]int
 }
 
+func (ts *TagSet) Reset() {
+	ts.tags = ts.tags[:0]
+	ts.tagIndex = make(map[string]int)
+}
+
 func (ts *TagSet) Len() int           { return len(ts.tags) }
 func (ts *TagSet) Less(i, j int) bool { return ts.tags[i].Key < ts.tags[j].Key }
 func (ts *TagSet) Swap(i, j int)      { ts.tags[i], ts.tags[j] = ts.tags[j], ts.tags[i] }

@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,14 @@ func BenchmarkStaticAndNoConcurrency(b *testing.B) {
 	})
 
 	b.Run("SliceAdding", func(b *testing.B) {
+		tagSetPool := sync.Pool{
+			New: func() any {
+				return NewTagSet()
+			},
+		}
 		for i := 0; i < b.N; i++ {
-			tags := NewTagSet()
+			tags := tagSetPool.Get().(*TagSet)
+			tags.Reset()
 			tags.AddTag("labelone", "valueone")
 			tags.AddTag("labeltthree", "valuetthree")
 			tags.AddTag("labelfour", "valuefour")
@@ -43,6 +50,8 @@ func BenchmarkStaticAndNoConcurrency(b *testing.B) {
 			tags.Sort()
 			h := tags.Hash()
 			_ = h
+
+			tagSetPool.Put(tags)
 		}
 	})
 
@@ -217,6 +226,12 @@ func BenchmarkDynamic(b *testing.B) {
 				})
 
 				b.Run("Slice", func(b *testing.B) {
+					tagSetPool := sync.Pool{
+						New: func() any {
+							return NewTagSet()
+						},
+					}
+
 					b.ReportAllocs()
 					b.ResetTimer()
 					b.SetParallelism(n)
@@ -224,7 +239,9 @@ func BenchmarkDynamic(b *testing.B) {
 					b.RunParallel(func(p *testing.PB) {
 						cycles := uint64(0)
 						for p.Next() {
-							r := NewTagSet()
+							r := tagSetPool.Get().(*TagSet)
+							r.Reset()
+
 							for i := uint64(0); i < 8; i++ {
 								if i < variance {
 									r.AddTag(
@@ -238,6 +255,8 @@ func BenchmarkDynamic(b *testing.B) {
 							r.Sort()
 							h := r.Hash()
 							_ = h
+
+							tagSetPool.Put(r)
 							cycles++
 						}
 					})
