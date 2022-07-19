@@ -7,18 +7,15 @@ import (
 type linkKeyType [2]string
 
 type Node struct {
-	root    *Node // immutable
-	prev    *Node // immutable
-	linkKey linkKeyType
+	root    *Node       // immutable
+	prev    *Node       // immutable
+	linkKey linkKeyType // immutable
 
-	links      map[linkKeyType]*Node // mutable
-	linksMutex sync.RWMutex          // TODO replace with atomics if possible
+	links sync.Map
 }
 
 func New() *Node {
-	n := &Node{
-		links: make(map[linkKeyType]*Node),
-	}
+	n := &Node{}
 	n.root = n
 	n.prev = n
 	return n
@@ -47,15 +44,11 @@ func (n *Node) AddLink(key, value string) *Node {
 	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
 	}
-	n.linksMutex.RLock()
-	linkKey := [2]string{key, value}
-	result, ok := n.links[linkKey]
-	n.linksMutex.RUnlock()
+	k, ok := n.links.Load([2]string{key, value})
 	if ok {
-		return result
+		return k.(*Node)
 	}
-	result = n.add(linkKey)
-	return result
+	return n.add(key, value)
 }
 
 func (n *Node) Contains(sub *Node) bool {
@@ -73,39 +66,35 @@ func (n *Node) Contains(sub *Node) bool {
 	return n.prev.Contains(sub)
 }
 
-func (n *Node) add(linkKey linkKeyType) *Node {
-	if n.linkKey == linkKey {
+func (n *Node) add(key, value string) *Node {
+	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
 	}
 	var newNode *Node
 	switch {
-	case n.linkKey[0] == linkKey[0]:
+	case n.linkKey[0] == key:
 		// the key is the same but the value is different
 		// we need to add a node at the current "level" to keep the key unique
 		// so we make a new node on top of the previous node
-		newNode = n.prev.add(linkKey)
-	case linkKey[0] < n.linkKey[0] || n.linkKey[0] == "":
+		newNode = n.prev.add(key, value)
+	case key < n.linkKey[0] || n.linkKey[0] == "":
 		// we just need to add the new node here because
 		// we are at the root or we are in the next direct link
 		newNode = &Node{
 			root:    n.root,
 			prev:    n,
-			linkKey: linkKey,
-			links:   make(map[linkKeyType]*Node),
+			linkKey: [2]string{key, value},
 		}
 	default:
 		// we need to add this to a previous node in the path
 		// then we have to add the current node pair on to the new path
-		newNode = n.prev.add(linkKey).add(n.linkKey)
+		newNode = n.prev.add(key, value).add(n.linkKey[0], n.linkKey[1])
 	}
 	// the actual adding
-	n.linksMutex.Lock()
-	if result, ok := n.links[linkKey]; ok {
+	k, loaded := n.links.LoadOrStore([2]string{key, value}, newNode)
+	if loaded {
 		// we raced - no problem just return the old
-		n.linksMutex.Unlock()
-		return result
+		return k.(*Node)
 	}
-	n.links[linkKey] = newNode
-	n.linksMutex.Unlock()
 	return newNode
 }
