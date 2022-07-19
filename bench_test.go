@@ -123,76 +123,53 @@ func BenchmarkStaticConcurrentSlice(b *testing.B) {
 	}
 }
 
-func BenchmarkDynamicSlice(b *testing.B) {
-	// variance(0%, 25%, 50%, 75%, 100%)
-	for _, variance := range []uint64{0, 2, 4, 6, 8} {
-		for _, n := range []int{runtime.GOMAXPROCS(0), 100, 1000, 10000, 50000} {
-			name := fmt.Sprintf("Var%d%%", variance*100/8)
-			if n >= 1000 {
-				name += fmt.Sprintf("G%dk", n/1000)
-			} else {
-				name += fmt.Sprintf("G%d", n)
-			}
-			b.Run(name, func(b *testing.B) {
-				ix := make([]uint64, n)
-				values := make([]string, n)
-				keys := make([]string, 15)
-				for i := 0; i < len(keys); i++ {
-					keys[i] = randSeq()
-				}
-				for i := 0; i < len(values); i++ {
-					values[i] = randSeq()
-					ix[i] = uint64(rand.Int() % len(values))
-				}
-				lkeys := uint64(len(keys))
-				lvals := uint64(len(values))
-				randKey := func(counter uint64) uint64 {
-					return ix[counter%lkeys] % lkeys
-				}
-				randVal := func(counter uint64) uint64 {
-					return ix[counter%lvals] % lvals
-				}
-				tags := []Tag{
-					{"labelone", "valueone"},
-					{"labeltwo", "valuetwo"},
-					{"labelthree", "valuetthree"},
-					{"labelfour", "valuefour"},
-					{"labelfive", "valuefive"},
-					{"labelsix", "valuefive"},
-					{"labelseven", "valuefive"},
-					{"labeleigth", "valuefive"},
-				}
+type dynamicBenchData struct {
+	values []string
+	keys   []string
 
-				b.ReportAllocs()
-				b.ResetTimer()
-				b.SetParallelism(n)
+	// It stores a series of random generated indexes
+	// to use to access in random order to a slice without
+	// compute them during the benchmark
+	randomIndex []uint64
 
-				b.RunParallel(func(p *testing.PB) {
-					cycles := uint64(0)
-					for p.Next() {
-						r := NewTagSet()
-						for i := uint64(0); i < 8; i++ {
-							if i < variance {
-								r.AddTag(
-									keys[randKey(cycles+i)],
-									values[randVal(cycles+i)],
-								)
-							} else {
-								r.AddTag(tags[i].Key, tags[i].Value)
-							}
-						}
-						r.Sort()
-						h := r.Hash()
-						_ = h
-						cycles++
-					}
-				})
-			})
-		}
-	}
+	maxItemIndex  uint64
+	maxItemKeys   uint64
+	maxItemValues uint64
 }
 
-func BenchmarkDynamicNode(b *testing.B) {
+func newDynamicBenchData() dynamicBenchData {
+	bdata := dynamicBenchData{
+		randomIndex: make([]uint64, 1000),
+		values:      make([]string, 1000),
+		keys:        make([]string, 15),
+	}
+	for i := 0; i < len(bdata.keys); i++ {
+		bdata.keys[i] = randSeq()
+	}
+
+	for i := 0; i < len(bdata.values); i++ {
+		bdata.values[i] = randSeq()
+		bdata.randomIndex[i] = uint64(rand.Int())
+	}
+
+	bdata.maxItemIndex = uint64(len(bdata.randomIndex) - 1)
+	bdata.maxItemKeys = uint64(len(bdata.keys) - 1)
+	bdata.maxItemValues = uint64(len(bdata.values) - 1)
+
+	return bdata
+}
+
+// It returns an index to use for accessing the keys slice in a random order
+func (bdata *dynamicBenchData) RandKey(counter uint64) uint64 {
+	return bdata.randomIndex[counter%bdata.maxItemIndex] % bdata.maxItemKeys
+}
+
+// It returns an index to use for accessing the values slice in a random order
+func (bdata *dynamicBenchData) RandValue(counter uint64) uint64 {
+	return bdata.randomIndex[counter%bdata.maxItemIndex] % bdata.maxItemValues
+}
+
+func BenchmarkDynamic(b *testing.B) {
 	// variance(0%, 25%, 50%, 75%, 100%)
 	for _, variance := range []uint64{0, 2, 4, 6, 8} {
 		for _, n := range []int{runtime.GOMAXPROCS(0), 100, 1000, 10000, 50000} {
@@ -203,24 +180,8 @@ func BenchmarkDynamicNode(b *testing.B) {
 				name += fmt.Sprintf("G%d", n)
 			}
 			b.Run(name, func(b *testing.B) {
-				ix := make([]uint64, n)
-				values := make([]string, n)
-				keys := make([]string, 15)
-				for i := 0; i < len(keys); i++ {
-					keys[i] = randSeq()
-				}
-				for i := 0; i < len(values); i++ {
-					values[i] = randSeq()
-					ix[i] = uint64(rand.Int() % len(values))
-				}
-				lkeys := uint64(len(keys))
-				lvals := uint64(len(values))
-				randKey := func(counter uint64) uint64 {
-					return ix[counter%lkeys] % lkeys
-				}
-				randVal := func(counter uint64) uint64 {
-					return ix[counter%lvals] % lvals
-				}
+				bdata := newDynamicBenchData()
+
 				tags := []Tag{
 					{"labelone", "valueone"},
 					{"labeltwo", "valuetwo"},
@@ -232,26 +193,54 @@ func BenchmarkDynamicNode(b *testing.B) {
 					{"labeleigth", "valuefive"},
 				}
 
-				r := New()
-				b.ReportAllocs()
-				b.ResetTimer()
-				b.SetParallelism(n)
-
-				b.RunParallel(func(p *testing.PB) {
-					cycles := uint64(0)
-					for p.Next() {
-						for i := uint64(0); i < 8; i++ {
-							if i < variance {
-								r.AddLink(
-									keys[randKey(cycles+i)],
-									values[randVal(cycles+i)],
-								)
-							} else {
-								r.AddLink(tags[i].Key, tags[i].Value)
+				b.Run("Node", func(b *testing.B) {
+					r := New()
+					b.ReportAllocs()
+					b.ResetTimer()
+					b.SetParallelism(n)
+					b.RunParallel(func(p *testing.PB) {
+						cycles := uint64(0)
+						for p.Next() {
+							for i := uint64(0); i < 8; i++ {
+								if i < variance {
+									r.AddLink(
+										bdata.keys[bdata.RandKey(cycles+i)],
+										bdata.values[bdata.RandValue(cycles+i)],
+									)
+								} else {
+									r.AddLink(tags[i].Key, tags[i].Value)
+								}
 							}
+							cycles++
 						}
-						cycles++
-					}
+					})
+				})
+
+				b.Run("Slice", func(b *testing.B) {
+					b.ReportAllocs()
+					b.ResetTimer()
+					b.SetParallelism(n)
+
+					b.RunParallel(func(p *testing.PB) {
+						cycles := uint64(0)
+						for p.Next() {
+							r := NewTagSet()
+							for i := uint64(0); i < 8; i++ {
+								if i < variance {
+									r.AddTag(
+										bdata.keys[bdata.RandKey(cycles+i)],
+										bdata.values[bdata.RandValue(cycles+i)],
+									)
+								} else {
+									r.AddTag(tags[i].Key, tags[i].Value)
+								}
+							}
+							r.Sort()
+							h := r.Hash()
+							_ = h
+							cycles++
+						}
+					})
 				})
 			})
 		}
