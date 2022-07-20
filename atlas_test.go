@@ -108,7 +108,7 @@ const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 func randSeq() string {
 	b := make([]byte, 100)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		b[i] = letters[rand.Intn(len(letters))] //nolint:gosec
 	}
 	return string(b)
 }
@@ -146,7 +146,7 @@ func TestConcurrency(t *testing.T) {
 
 func BenchmarkNodeConcurrencyBad(b *testing.B) {
 	ixrand := func(nvals int) int {
-		return rand.Int() % nvals
+		return rand.Int() % nvals //nolint:gosec
 	}
 	for _, n := range []int{1000, 10000, 100000} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {

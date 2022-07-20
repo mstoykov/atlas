@@ -1,3 +1,8 @@
+// Package atlas implement a graph of string to string pairs.
+// It is optimzed for when a finite amount of key-value pairs will be constructed in the same way over time.
+// It is also thread-safe.
+// It's particularly good at taking the same root through the graph over and over again and the Node's can directly be
+// used as map keys or compared for equality against each other.
 package atlas
 
 import (
@@ -6,6 +11,8 @@ import (
 
 type linkKeyType [2]string
 
+// Node is a node in the atlas
+// it is unique per Root and can directly be compared  with `==` to another Node
 type Node struct {
 	root    *Node       // immutable
 	prev    *Node       // immutable
@@ -14,6 +21,7 @@ type Node struct {
 	links sync.Map
 }
 
+// New returns a new root Node. Nodes from different roots being used together have undefined behaviour
 func New() *Node {
 	n := &Node{}
 	n.root = n
@@ -21,6 +29,7 @@ func New() *Node {
 	return n
 }
 
+// ValueByKey gets the value of key written in this Node or any of it's ancestors
 func (n *Node) ValueByKey(k string) (string, bool) {
 	if n.root == n {
 		return "", false
@@ -31,6 +40,7 @@ func (n *Node) ValueByKey(k string) (string, bool) {
 	return n.prev.ValueByKey(k)
 }
 
+// Path returns a map representing all key/value pairs recorded in the Node
 func (n *Node) Path() map[string]string {
 	if n.root == n {
 		return make(map[string]string)
@@ -40,17 +50,21 @@ func (n *Node) Path() map[string]string {
 	return result
 }
 
+// AddLink adds the provided key value pair to the tree and returns the new Node that includes all key and values of
+// the parent node and the new key value provided. If a key matches it will have the new value provided here.
 func (n *Node) AddLink(key, value string) *Node {
 	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
 	}
 	k, ok := n.links.Load([2]string{key, value})
 	if ok {
-		return k.(*Node)
+		return k.(*Node) //nolint:forcetypeassert
 	}
 	return n.add(key, value)
 }
 
+// Contains checks that for each key value in the provided Node there will be the same key with the same value in the
+// receiver Node
 func (n *Node) Contains(sub *Node) bool {
 	if n == sub {
 		return true
@@ -94,7 +108,7 @@ func (n *Node) add(key, value string) *Node {
 	k, loaded := n.links.LoadOrStore([2]string{key, value}, newNode)
 	if loaded {
 		// we raced - no problem just return the old
-		return k.(*Node)
+		return k.(*Node) //nolint:forcetypeassert
 	}
 	return newNode
 }
