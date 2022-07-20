@@ -29,6 +29,11 @@ func New() *Node {
 	return n
 }
 
+// IsRoot checks if the current Node is the root
+func (n *Node) IsRoot() bool {
+	return n.root == n
+}
+
 // ValueByKey gets the value of key written in this Node or any of it's ancestors
 func (n *Node) ValueByKey(k string) (string, bool) {
 	if n.root == n {
