@@ -102,6 +102,15 @@ func TestNodeContains(t *testing.T) {
 	require.False(t, n3.Contains(n2)) // B7,C4 | B7,C6
 }
 
+func TestNodeIsRoot(t *testing.T) {
+	t.Parallel()
+
+	r := New()
+	assert.True(t, r.IsRoot())
+	subnode := r.AddLink("key1", "val1")
+	assert.False(t, subnode.IsRoot())
+}
+
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // from https://stackoverflow.com/a/22892986/5427244
