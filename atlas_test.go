@@ -266,10 +266,11 @@ func getAllNodes(root *Node) []*Node {
 	nodes := []*Node{}
 	var addNodes func(n *Node)
 	addNodes = func(n *Node) {
-		if _, ok := seen[n]; !ok {
-			seen[n] = struct{}{}
-			nodes = append(nodes, n)
+		if _, ok := seen[n]; ok {
+			return
 		}
+		seen[n] = struct{}{}
+		nodes = append(nodes, n)
 		n.links.Range(func(key, value any) bool {
 			addNodes(value.(*Node)) //nolint:forcetypeassert
 			return true
