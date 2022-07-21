@@ -297,8 +297,9 @@ func TestFinalNodesEquality(t *testing.T) {
 
 	// Add all of the observed nodes in the set of starting nodes, because...
 	t.Logf("Gathering all graph nodes...")
+	startTime := time.Now()
 	startingNodes := getAllNodes(root)
-	t.Logf("Gathered %d starting nodes!", len(startingNodes))
+	t.Logf("Gathered %d starting nodes for %s!", len(startingNodes), time.Since(startTime))
 
 	// ... if we start at any node, but we make sure to add exactly one tag with
 	// every key, we still expect to arrive at the same final node, even if we
