@@ -217,48 +217,69 @@ func (th *testHelper) getOneTagPerKey(maxKeys int) []linkKeyType {
 	return res
 }
 
-func testFinalNodesEquality(th *testHelper, startingNodes []*Node, tags []linkKeyType) {
-	tagsLen := len(tags)
-	vusCount := th.randInt(20, 50)
+func (th *testHelper) runVUs(
+	vusCount int, vuInit func(id int) (vuRun func()),
+) {
 	vusReady := &sync.WaitGroup{}
 	vusReady.Add(vusCount)
 	startVUs := make(chan struct{})
 	vusDone := &sync.WaitGroup{}
 	vusDone.Add(vusCount)
 
-	finalNodes := make([]*Node, vusCount)
 	for i := 0; i < vusCount; i++ {
+		vuRun := vuInit(i)
+		go func() {
+			vusReady.Done()
+			<-startVUs // start all VUs as simultaneously as possible
+			vuRun()
+			vusDone.Done()
+		}()
+	}
+
+	th.t.Logf("Preparing to launch %d VUs...", vusCount)
+	vusReady.Wait()
+	th.t.Logf("Starting %d VUs simultaneously!", vusCount)
+	startTime := time.Now()
+	close(startVUs)
+	vusDone.Wait()
+	th.t.Logf("%d VUs done executing after %s!", vusCount, time.Since(startTime))
+}
+
+func testFinalNodesEquality(th *testHelper, startingNodes []*Node, tags []linkKeyType) {
+	tagsLen := len(tags)
+	vusCount := th.randInt(20, 50) + 10
+	finalNodes := make([]*Node, vusCount)
+	th.runVUs(vusCount, func(id int) func() {
 		randStep, randOffset := th.getRandCoPrimeAndOffset(tagsLen)
 		randStartingNode := th.randInt(0, len(startingNodes))
 		th.t.Logf(
 			"VU %d will use starting Node %d, co-prime %d, offset %d to iterate over %d elements",
-			i, randStartingNode, randStep, randOffset, tagsLen,
+			id, randStartingNode, randStep, randOffset, tagsLen,
 		)
-		go func(vuID, startNode, step, offset int) {
-			vusReady.Done()
-			<-startVUs // start all VUs as simultaneously as possible
-			n := startingNodes[startNode]
+
+		run := func() {
+			n := startingNodes[randStartingNode]
 			myNodes := make([]*Node, tagsLen)
 			for j := 0; j < tagsLen; j++ {
-				tagIndex := (j*randStep + offset) % tagsLen
+				tagIndex := (j*randStep + randOffset) % tagsLen
 				// th.t.Logf("VU %03d iterates over index %03d (%s)", vuID, tagIndex, tags[tagIndex])
 				n = n.add(tags[tagIndex][0], tags[tagIndex][1])
 				myNodes[j] = n
 			}
-			finalNodes[vuID] = n
-			vusDone.Done()
-		}(i, randStartingNode, randStep, randOffset)
-	}
+			finalNodes[id] = n
+		}
 
-	vusReady.Wait()
-	close(startVUs)
-	vusDone.Wait()
+		return run
+	})
 
+	success := true
 	for i := 1; i < vusCount; i++ {
 		if finalNodes[0] != finalNodes[i] {
+			success = false
 			th.t.Errorf("Final node 0 is not equal to final node %d:\n\t%s\n\t%s", i, finalNodes[0], finalNodes[i])
 		}
 	}
+	th.t.Logf("Equality test done with success=%t", success)
 }
 
 func getAllNodes(root *Node) []*Node {
