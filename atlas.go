@@ -11,6 +11,10 @@ import (
 
 type linkKeyType [2]string
 
+func (lkt linkKeyType) String() string {
+	return "{" + lkt[0] + ": " + lkt[1] + "}"
+}
+
 // Node is a node in the atlas
 // it is unique per Root and can directly be compared  with `==` to another Node
 type Node struct {
@@ -27,6 +31,13 @@ func New() *Node {
 	n.root = n
 	n.prev = n
 	return n
+}
+
+func (n *Node) String() string {
+	if n.IsRoot() {
+		return "/"
+	}
+	return n.prev.String() + "/" + n.linkKey.String()
 }
 
 // IsRoot checks if the current Node is the root
