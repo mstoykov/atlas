@@ -219,7 +219,7 @@ func (th *testHelper) getOneTagPerKey(maxKeys int) []linkKeyType {
 
 func testFinalNodesEquality(th *testHelper, startingNodes []*Node, tags []linkKeyType) {
 	tagsLen := len(tags)
-	vusCount := th.randInt(2, 5)
+	vusCount := th.randInt(20, 50)
 	vusReady := &sync.WaitGroup{}
 	vusReady.Add(vusCount)
 	startVUs := make(chan struct{})
@@ -282,7 +282,7 @@ func getAllNodes(root *Node) []*Node {
 func TestFinalNodesEquality(t *testing.T) {
 	t.Parallel()
 
-	th := newTestHelper(t, 10, 20, 5, 50)
+	th := newTestHelper(t, 10, 30, 5, 50)
 
 	root := New()
 	// Starting from the root, if we add the same tag keys and values, but in
@@ -296,6 +296,7 @@ func TestFinalNodesEquality(t *testing.T) {
 	}
 
 	// Add all of the observed nodes in the set of starting nodes, because...
+	t.Logf("Gathering all graph nodes...")
 	startingNodes := getAllNodes(root)
 	t.Logf("Gathered %d starting nodes!", len(startingNodes))
 
