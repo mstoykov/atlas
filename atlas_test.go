@@ -289,11 +289,19 @@ func TestFinalNodesEquality(t *testing.T) {
 	// Starting from the root, if we add the same tag keys and values, but in
 	// different order, we expect to arrive at the same final node
 	subsetTestCount := th.randInt(15, 30)
+	tagSets := make([][]linkKeyType, subsetTestCount)
+	// We generate the tags sets before we test with VUs, so the RNG numbers
+	// that influence the key and tag picking are not affected by VU counts
 	for i := 0; i < subsetTestCount; i++ {
 		keysCount := th.randInt(len(th.tagKeys)/2, len(th.tagKeys)) // do not generally use all keys
-		tags := th.getOneTagPerKey(keysCount)
-		t.Logf("Final node equality test with %d/%d with tags for %d keys: %q", i+1, subsetTestCount, keysCount, tags)
-		testFinalNodesEquality(th, []*Node{root}, tags)
+		tagSets[i] = th.getOneTagPerKey(keysCount)
+	}
+	for i := 0; i < subsetTestCount; i++ {
+		t.Logf(
+			"Final node equality test with %d/%d with tags for %d keys: %q",
+			i+1, subsetTestCount, len(tagSets[i]), tagSets[i],
+		)
+		testFinalNodesEquality(th, []*Node{root}, tagSets[i])
 	}
 
 	// Add all of the observed nodes in the set of starting nodes, because...
