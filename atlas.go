@@ -11,17 +11,18 @@ import (
 
 type linkKeyType [2]string
 
-// Node is a node in the atlas
-// it is unique per Root and can directly be compared  with `==` to another Node
+// Node records a set of key-value pairs.
+// It is unique per Root and it can directly be compared  with `==` to another Node.
 type Node struct {
+	links sync.Map
+
 	root    *Node       // immutable
 	prev    *Node       // immutable
 	linkKey linkKeyType // immutable
-
-	links sync.Map
 }
 
-// New returns a new root Node. Nodes from different roots being used together have undefined behaviour
+// New returns a new root Node.
+// Nodes from different roots being used together have undefined behaviour.
 func New() *Node {
 	n := &Node{}
 	n.root = n
@@ -29,12 +30,12 @@ func New() *Node {
 	return n
 }
 
-// IsRoot checks if the current Node is the root
+// IsRoot checks if the current Node is the root.
 func (n *Node) IsRoot() bool {
 	return n.root == n
 }
 
-// ValueByKey gets the value of key written in this Node or any of it's ancestors
+// ValueByKey gets the value of key written in this Node or any of its ancestor.
 func (n *Node) ValueByKey(k string) (string, bool) {
 	if n.root == n {
 		return "", false
@@ -45,7 +46,28 @@ func (n *Node) ValueByKey(k string) (string, bool) {
 	return n.prev.ValueByKey(k)
 }
 
-// Path returns a map representing all key/value pairs recorded in the Node
+// DeleteKey returns a Node that hasn't the provided key
+// in its set of recorded key-value pairs.
+func (n *Node) DeleteKey(k string) *Node {
+	if n.root == n {
+		return n
+	}
+	if n.linkKey[0] == k {
+		return n.prev
+	}
+	prev := n.prev.DeleteKey(k)
+	return prev.add(n.linkKey[0], n.linkKey[1])
+}
+
+// Len returns the length of the all key-values pairs recorded in the Node.
+func (n *Node) Len() int {
+	if n.root == n {
+		return 0
+	}
+	return n.prev.Len() + 1
+}
+
+// Path returns a map representing all key-value pairs recorded in the Node.
 func (n *Node) Path() map[string]string {
 	if n.root == n {
 		return make(map[string]string)
@@ -55,8 +77,14 @@ func (n *Node) Path() map[string]string {
 	return result
 }
 
-// AddLink adds the provided key value pair to the tree and returns the new Node that includes all key and values of
-// the parent node and the new key value provided. If a key matches it will have the new value provided here.
+// AddLink adds the key and value strings to the tree
+// and returns the new Node that includes all the key and values of
+// the parent Node plus the new key-value pair provided.
+//
+// If another pair with the same key and a different value already exists in the path
+// then the new Node will have the key replaced with the new provided value from the pair.
+//   (e.g. adding keyA, val2 to a set of {keyA:val1, keyB:val3}
+//   will return the set {keyA: val2, keyB: val3}).
 func (n *Node) AddLink(key, value string) *Node {
 	if n.linkKey[0] == key && n.linkKey[1] == value {
 		return n
@@ -68,8 +96,8 @@ func (n *Node) AddLink(key, value string) *Node {
 	return n.add(key, value)
 }
 
-// Contains checks that for each key value in the provided Node there will be the same key with the same value in the
-// receiver Node
+// Contains checks that for each key-value pair in the provided Node
+// there will be the same key with the same value in the receiver's Node.
 func (n *Node) Contains(sub *Node) bool {
 	if n == sub {
 		return true

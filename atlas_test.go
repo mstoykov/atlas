@@ -69,6 +69,46 @@ func TestNodeValueByKey(t *testing.T) {
 	assert.Equal(t, "7", v)
 }
 
+func TestNodeDeleteKey(t *testing.T) {
+	t.Parallel()
+
+	r := New()
+	n1 := r.AddLink("c", "6").AddLink("a", "5")
+	n2 := n1.AddLink("b", "7").AddLink("d", "9")
+
+	n3 := n1.DeleteKey("c")
+	n4 := n2.DeleteKey("c")
+
+	assert.Equal(t, r, r.DeleteKey("doesnotexist"))
+	assert.Equal(t, n4, n4.DeleteKey("doesnotexist"))
+
+	expn1 := map[string]string{"a": "5", "c": "6"}
+	assert.Equal(t, expn1, n1.Path())
+
+	expn2 := map[string]string{"a": "5", "c": "6", "b": "7", "d": "9"}
+	assert.Equal(t, expn2, n2.Path())
+
+	expn3 := map[string]string{"a": "5"}
+	assert.Equal(t, expn3, n3.Path())
+
+	expn4 := map[string]string{"a": "5", "b": "7", "d": "9"}
+	assert.Equal(t, expn4, n4.Path())
+
+	assert.Equal(t, r, n3.DeleteKey("a"))
+}
+
+func TestNodeLen(t *testing.T) {
+	t.Parallel()
+
+	r := New()
+	n1 := r.AddLink("c", "6")
+	n2 := n1.AddLink("b", "7").AddLink("d", "9")
+
+	assert.Equal(t, r.Len(), 0)
+	assert.Equal(t, n1.Len(), 1)
+	assert.Equal(t, n2.Len(), 3)
+}
+
 func TestNodeContains(t *testing.T) {
 	t.Parallel()
 
