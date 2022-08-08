@@ -1,6 +1,7 @@
 package atlas
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -149,6 +150,58 @@ func TestNodeIsRoot(t *testing.T) {
 	assert.True(t, r.IsRoot())
 	subnode := r.AddLink("key1", "val1")
 	assert.False(t, subnode.IsRoot())
+}
+
+func ExampleNode_Data() {
+	node := New().
+		AddLink("foo", "1").
+		AddLink("bar", "2").
+		AddLink("baz", "3")
+
+	for iter := node; !iter.IsRoot(); {
+		prev, key, value := iter.Data()
+		fmt.Printf("%s: %s\n", key, value)
+		iter = prev
+	}
+
+	// Output:
+	// bar: 2
+	// baz: 3
+	// foo: 1
+}
+
+func TestNodeGetData(t *testing.T) {
+	t.Parallel()
+
+	r := New()
+
+	parent, key, val := r.Data()
+	assert.True(t, parent == r)
+	assert.Equal(t, "", key)
+	assert.Equal(t, "", val)
+
+	subnode1 := r.AddLink("key_m", "val_m")
+	parent, key, val = subnode1.Data()
+	assert.True(t, parent == r)
+	assert.Equal(t, "key_m", key)
+	assert.Equal(t, "val_m", val)
+
+	subnode2 := subnode1.AddLink("key_a", "val_a")
+	parent, key, val = subnode2.Data()
+	assert.True(t, parent == subnode1)
+	assert.Equal(t, "key_a", key)
+	assert.Equal(t, "val_a", val)
+
+	subnode3 := subnode2.AddLink("key_z", "val_z")
+	parent, key, val = subnode3.Data()
+	// This is sorted after key_m, so its path should be key_a->key_m->key_z->root
+	assert.Equal(t, "key_a", key)
+	assert.Equal(t, "val_a", val)
+	assert.True(t, parent.Contains(subnode1))
+	assert.Equal(t,
+		map[string]string{"key_a": "val_a", "key_m": "val_m", "key_z": "val_z"},
+		subnode3.Path(),
+	)
 }
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
