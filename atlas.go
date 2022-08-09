@@ -104,7 +104,7 @@ func (n *Node) AddLink(key, value string) *Node {
 // Contains checks that for each key-value pair in the provided Node
 // there will be the same key with the same value in the receiver's Node.
 func (n *Node) Contains(sub *Node) bool {
-	if n == sub {
+	if n == sub || sub.root == sub {
 		return true
 	}
 	if n.root == n {
