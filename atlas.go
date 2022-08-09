@@ -110,9 +110,6 @@ func (n *Node) Contains(sub *Node) bool {
 	if n.root == n {
 		return false
 	}
-	if n.linkKey[0] > sub.linkKey[0] {
-		return n.prev.Contains(sub.prev)
-	}
 	// TODO: https://github.com/mstoykov/atlas/issues/2
 	// apparently this is faster than if n.linkKey == sub.linkKey
 	if n.linkKey[0] == sub.linkKey[0] && n.linkKey[1] == sub.linkKey[1] {
