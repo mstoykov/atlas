@@ -107,7 +107,7 @@ func (n *Node) Contains(sub *Node) bool {
 	if n == sub || sub.root == sub {
 		return true
 	}
-	if n.root == n {
+	if n.root == n || n.linkKey[0] > sub.linkKey[0] {
 		return false
 	}
 	// TODO: https://github.com/mstoykov/atlas/issues/2
