@@ -338,36 +338,88 @@ func BenchmarkNodeRealistic(b *testing.B) {
 	}
 }
 
-func BenchmarkNodeContains(b *testing.B) {
-	for _, n := range []int{1000, 10000, 100000} {
-		b.Run(strconv.Itoa(n), func(b *testing.B) {
-			values := make([]string, n)
-			for i := 0; i < len(values); i++ {
-				values[i] = randSeq()
-			}
-			r := New()
-			n := r.AddLink("labelone", "valueone").
-				AddLink("labeltwo", "valuetwo").
-				AddLink("labeltthree", "valuetthree").
-				AddLink("labelfour", "valuefour").
-				AddLink("labelfive", "valuefive").
-				AddLink("labelsix", "valuefive").
-				AddLink("labelseven", "valuefive").
-				AddLink("labeleigth", "valuefive")
+func BenchmarkNodeContainsPositive(b *testing.B) {
+	r := New()
+	n := r.AddLink("labelone", "valueone").
+		AddLink("labeltwo", "valuetwo").
+		AddLink("labeltthree", "valuetthree").
+		AddLink("labelfour", "valuefour").
+		AddLink("labelfive", "valuefive").
+		AddLink("labelsix", "valuefive").
+		AddLink("labelseven", "valuefive").
+		AddLink("labeleigth", "valuefive")
 
-			n2 := r.AddLink("labelone", "valueone").
-				AddLink("labeltthree", "valuetthree").
-				AddLink("labelfour", "valuefour").
-				AddLink("labelfive", "valuefive").
-				AddLink("labelsix", "valuefive").
-				AddLink("labelseven", "valuefive").
-				AddLink("labeleigth", "valuefive")
+	n2 := r.AddLink("labelone", "valueone").
+		AddLink("labeltthree", "valuetthree").
+		AddLink("labelfour", "valuefour").
+		AddLink("labelfive", "valuefive").
+		AddLink("labelsix", "valuefive").
+		AddLink("labelseven", "valuefive").
+		AddLink("labeleigth", "valuefive")
 
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			n.Contains(n2)
+		}
+	})
+}
+
+func BenchmarkNodeContainsNegative(b *testing.B) {
+	r := New()
+	n := r.AddLink("labelone", "valueone").
+		AddLink("labeltwo", "valuetwo").
+		AddLink("labeltthree", "valuetthree").
+		AddLink("labelfour", "valuefour").
+		AddLink("labelfive", "valuefive").
+		AddLink("labelsix", "valuefive").
+		AddLink("labelseven", "valuefive").
+		AddLink("labeleigth", "valuefive")
+
+	n2 := r.AddLink("labelone", "valueone").
+		AddLink("labeltthree", "valuetthree").
+		AddLink("labelfour", "valuefour").
+		AddLink("labelfive", "valuefives"). // wrong value
+		AddLink("labelsix", "valuefive").
+		AddLink("labelseven", "valuefive").
+		AddLink("labeleigth", "valuefive")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			n.Contains(n2)
+		}
+	})
+}
+
+func BenchmarkNodeValueByKey(b *testing.B) {
+	r := New()
+	n := r.AddLink("labelone", "valueone").
+		AddLink("labeltwo", "valuetwo").
+		AddLink("labeltthree", "valuetthree").
+		AddLink("labelfour", "valuefour").
+		AddLink("labelfive", "valuefive").
+		AddLink("labelsix", "valuefive").
+		AddLink("labelseven", "valuefive").
+		AddLink("labeleigth", "valuefive")
+
+	for name, key := range map[string]string{
+		"goodKeyLow":  "labelone",
+		"badKeyLow":   "labelone2",
+		"goodKeyMid":  "labelfour",
+		"badKeyMid":   "labelfour2",
+		"goodKeyHigh": "labeleight",
+		"badKeyHigh":  "labeleight2",
+	} {
+		key := key
+		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			b.RunParallel(func(p *testing.PB) {
 				for p.Next() {
-					n.Contains(n2)
+					n.ValueByKey(key)
 				}
 			})
 		})
