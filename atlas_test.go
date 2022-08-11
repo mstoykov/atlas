@@ -127,6 +127,10 @@ func TestNodeContains(t *testing.T) {
 		AddLink("b", "7").
 		AddLink("c", "4")
 
+	n6 := r.AddLink("e", "5").
+		AddLink("b", "7").
+		AddLink("c", "4")
+
 	assert.True(t, r.Contains(r))   // {} | {}
 	assert.True(t, n1.Contains(n1)) // A5,C6,B7 | A5,C6,B7
 
@@ -141,6 +145,8 @@ func TestNodeContains(t *testing.T) {
 	require.False(t, n3.Contains(n5)) // B7,C4 | A5,C6,B7
 	require.False(t, n3.Contains(n5)) // B7,C4 | D9,B7,C4
 	require.False(t, n3.Contains(n2)) // B7,C4 | B7,C6
+
+	require.False(t, n6.Contains(n5)) // E5,B7,C4 | D9,B7,C4
 }
 
 func TestNodeIsRoot(t *testing.T) {
